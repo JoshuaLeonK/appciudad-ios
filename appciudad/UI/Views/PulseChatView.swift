@@ -77,13 +77,14 @@ extension PulseChatCoordinator: WKScriptMessageHandler {
         
         switch event {
         case "jsReady":
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            // Dar más tiempo para que Pulse cargue completamente (especialmente en conexiones lentas)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
                 self?.activateChat()
             }
         
         case "pulseDetected":
-            // Cuando Pulse se detecta, intentar abrir inmediatamente
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            // Cuando Pulse se detecta, esperar un poco antes de abrir
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
                 self?.activateChat()
             }
             
@@ -296,6 +297,7 @@ struct PulseChatWebView: UIViewRepresentable {
                 
                 let chatOpened = false;
                 let pulseCheckInterval = null;
+                let stylesApplied = false;
                 
                 // Función principal para activar el chat
                 window.activateChatFromSwift = function() {
@@ -310,10 +312,22 @@ struct PulseChatWebView: UIViewRepresentable {
                             typeof PulseLiveChat.show === 'function') {
                             
                             try {
-                                PulseLiveChat.show();
-                                chatOpened = true;
-                                
-                                SwiftBridge.send('chatOpened');
+                                // PRIMERO: Aplicar estilos antes de abrir
+                                if (!stylesApplied) {
+                                    applyPulseAdjustments();
+                                    stylesApplied = true;
+                                    
+                                    // Esperar 1 segundo después de aplicar estilos
+                                    setTimeout(function() {
+                                        PulseLiveChat.show();
+                                        chatOpened = true;
+                                        SwiftBridge.send('chatOpened');
+                                    }, 1000);
+                                } else {
+                                    PulseLiveChat.show();
+                                    chatOpened = true;
+                                    SwiftBridge.send('chatOpened');
+                                }
                                 
                                 if (pulseCheckInterval) {
                                     clearInterval(pulseCheckInterval);
@@ -425,19 +439,20 @@ struct PulseChatWebView: UIViewRepresentable {
                                 // Aplicar ajustes inmediatamente
                                 applyPulseAdjustments();
                                 
-                                // Aplicar múltiples veces durante los primeros segundos
-                                setTimeout(applyPulseAdjustments, 50);
-                                setTimeout(applyPulseAdjustments, 100);
-                                setTimeout(applyPulseAdjustments, 200);
-                                setTimeout(applyPulseAdjustments, 300);
-                                setTimeout(applyPulseAdjustments, 500);
-                                setTimeout(applyPulseAdjustments, 700);
-                                setTimeout(applyPulseAdjustments, 1000);
-                                setTimeout(applyPulseAdjustments, 1500);
-                                setTimeout(applyPulseAdjustments, 2000);
+                                // Aplicar muy frecuentemente durante los primeros 5 segundos
+                                for (let i = 1; i <= 50; i++) {
+                                    setTimeout(applyPulseAdjustments, i * 100);
+                                }
                                 
-                                // Aplicar periódicamente cada segundo
-                                setInterval(applyPulseAdjustments, 1000);
+                                // Después de 5 segundos, aplicar cada segundo durante 15 segundos más
+                                for (let i = 0; i < 15; i++) {
+                                    setTimeout(applyPulseAdjustments, 5000 + (i * 1000));
+                                }
+                                
+                                // Después de 20 segundos, aplicar cada 2 segundos indefinidamente
+                                setTimeout(function() {
+                                    setInterval(applyPulseAdjustments, 2000);
+                                }, 20000);
                                 
                                 // Observer para detectar cambios en el DOM
                                 const observer = new MutationObserver(function(mutations) {
