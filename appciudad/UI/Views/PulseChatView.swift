@@ -295,8 +295,9 @@ struct PulseChatWebView: UIViewRepresentable {
                 let chatOpened = false;
                 let pulseCheckInterval = null;
                 
-                // Función simple para ocultar la X en el shadowRoot
-                function hideCloseButton() {
+                // Función para ocultar la X y forzar posicionamiento full-screen
+                function applyPulseAdjustments() {
+                    // 1. Ocultar botón X en shadowRoot
                     const allElements = document.querySelectorAll('*');
                     for (let i = 0; i < allElements.length; i++) {
                         if (allElements[i].shadowRoot) {
@@ -318,6 +319,38 @@ struct PulseChatWebView: UIViewRepresentable {
                             } catch(e) {
                                 // Shadow root cerrado
                             }
+                        }
+                    }
+                    
+                    // 2. FORZAR posicionamiento full-screen en elementos de Pulse
+                    const pulseElements = document.querySelectorAll(
+                        'div[id*="pulse"], div[class*="pulse"], iframe[id*="pulse"], iframe[src*="pulse"]'
+                    );
+                    pulseElements.forEach(function(el) {
+                        el.style.width = '100%';
+                        el.style.height = '100%';
+                        el.style.maxWidth = '100%';
+                        el.style.maxHeight = '100%';
+                        el.style.position = 'absolute';
+                        el.style.top = '0';
+                        el.style.left = '0';
+                        el.style.right = '0';
+                        el.style.bottom = '0';
+                        el.style.margin = '0';
+                        el.style.padding = '0';
+                        el.style.transform = 'none';
+                    });
+                    
+                    // 3. Forzar también en hijos del chatContainer
+                    const chatContainer = document.getElementById('chatContainer');
+                    if (chatContainer && chatContainer.children.length > 0) {
+                        for (let i = 0; i < chatContainer.children.length; i++) {
+                            const child = chatContainer.children[i];
+                            child.style.width = '100%';
+                            child.style.height = '100%';
+                            child.style.position = 'absolute';
+                            child.style.top = '0';
+                            child.style.left = '0';
                         }
                     }
                 }
@@ -344,12 +377,12 @@ struct PulseChatWebView: UIViewRepresentable {
                                     pulseCheckInterval = null;
                                 }
                                 
-                                // Ocultar botón X después de abrir
-                                setTimeout(hideCloseButton, 100);
-                                setTimeout(hideCloseButton, 300);
-                                setTimeout(hideCloseButton, 500);
-                                setTimeout(hideCloseButton, 1000);
-                                setInterval(hideCloseButton, 2000);
+                                // Aplicar ajustes (X + posicionamiento full-screen)
+                                setTimeout(applyPulseAdjustments, 100);
+                                setTimeout(applyPulseAdjustments, 300);
+                                setTimeout(applyPulseAdjustments, 500);
+                                setTimeout(applyPulseAdjustments, 1000);
+                                setInterval(applyPulseAdjustments, 2000);
                                 
                             } catch (error) {
                                 SwiftBridge.send('chatError', { error: error.toString() });
