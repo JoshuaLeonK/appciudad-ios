@@ -77,7 +77,7 @@ extension PulseChatCoordinator: WKScriptMessageHandler {
         
         switch event {
         case "jsReady":
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
                 self?.activateChat()
             }
             
@@ -178,36 +178,10 @@ struct PulseChatWebView: UIViewRepresentable {
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 }
                 
-                #loadingMessage {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background-color: #ffffff;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    flex-direction: column;
-                    z-index: 999999;
-                }
-                
-                #loadingMessage .loading-text {
-                    color: #102334;
-                    font-size: 18px;
-                    font-weight: 600;
-                    animation: pulse 1.5s ease-in-out infinite;
-                }
-                
-                @keyframes pulse {
-                    0%, 100% { opacity: 0.6; }
-                    50% { opacity: 1; }
-                }
-                
                 #chatContainer {
                     width: 100%;
                     height: 100%;
-                    display: none;
+                    display: block;
                     position: absolute;
                     top: 0;
                     left: 0;
@@ -217,12 +191,6 @@ struct PulseChatWebView: UIViewRepresentable {
                     padding: 0;
                     z-index: 9999;
                     overflow: hidden;
-                }
-                
-                #chatContainer.active {
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
                 }
                 
                 /* FORZAR que Pulse ocupe el 100% del contenedor */
@@ -285,22 +253,9 @@ struct PulseChatWebView: UIViewRepresentable {
             </style>
         </head>
         <body>
-            <div id="loadingMessage">
-                <div class="loading-text">
-                    ⏳ Cargando chat de ayuda...<br>
-                    <small id="statusText">Inicializando...</small>
-                </div>
-            </div>
-            
             <div id="chatContainer"></div>
             
             <script>
-                function updateStatus(text) {
-                    const statusEl = document.getElementById('statusText');
-                    if (statusEl) {
-                        statusEl.textContent = text;
-                    }
-                }
                 
                 const SwiftBridge = {
                     send: function(event, data = {}) {
@@ -318,28 +273,17 @@ struct PulseChatWebView: UIViewRepresentable {
                 
                 // Función principal para activar el chat
                 window.activateChatFromSwift = function() {
-                    updateStatus('Activando chat...');
-                    
                     if (chatOpened) {
                         return;
                     }
                     
-                    const loadingMessage = document.getElementById('loadingMessage');
-                    const chatContainer = document.getElementById('chatContainer');
-                    
                     function attemptOpen(retries = 0) {
-                        const maxRetries = 30; // Reducido a 30 intentos (15 segundos)
+                        const maxRetries = 60; // 30 segundos máximo
                         
                         if (typeof PulseLiveChat !== 'undefined' && 
                             typeof PulseLiveChat.show === 'function') {
                             
-                            updateStatus('Abriendo chat...');
-                            
                             try {
-                                if (chatContainer) {
-                                    chatContainer.classList.add('active');
-                                }
-                                
                                 PulseLiveChat.show();
                                 chatOpened = true;
                                 
@@ -411,47 +355,17 @@ struct PulseChatWebView: UIViewRepresentable {
                                     }
                                 }
                                 
-                                // Aplicar ajustes INMEDIATAMENTE y repetidamente
-                                // Primera aplicación instantánea
+                                // Aplicar ajustes inmediatamente
                                 applyPulseAdjustments();
                                 
-                                // Aplicaciones tempranas (0-500ms)
-                                setTimeout(applyPulseAdjustments, 50);
+                                // Aplicar varias veces para asegurar que funcione
                                 setTimeout(applyPulseAdjustments, 100);
-                                setTimeout(applyPulseAdjustments, 200);
                                 setTimeout(applyPulseAdjustments, 300);
                                 setTimeout(applyPulseAdjustments, 500);
-                                
-                                // Aplicaciones medias (500ms-2s)
-                                setTimeout(applyPulseAdjustments, 750);
                                 setTimeout(applyPulseAdjustments, 1000);
-                                setTimeout(applyPulseAdjustments, 1500);
                                 
-                                // Ocultar pantalla de carga después de 2 segundos
-                                setTimeout(function() {
-                                    applyPulseAdjustments();
-                                    
-                                    if (loadingMessage) {
-                                        loadingMessage.style.opacity = '0';
-                                        loadingMessage.style.transition = 'opacity 0.3s ease';
-                                        setTimeout(function() {
-                                            loadingMessage.style.display = 'none';
-                                        }, 300);
-                                    }
-                                }, 2000);
-                                
-                                // Aplicaciones tardías (después de ocultar loading)
-                                setTimeout(applyPulseAdjustments, 2500);
-                                setTimeout(applyPulseAdjustments, 3000);
-                                setTimeout(applyPulseAdjustments, 4000);
-                                
-                                // Intervalo agresivo durante los primeros 5 segundos
-                                let aggressiveInterval = setInterval(applyPulseAdjustments, 100);
-                                setTimeout(function() {
-                                    clearInterval(aggressiveInterval);
-                                    // Después del intervalo agresivo, aplicar cada segundo
-                                    setInterval(applyPulseAdjustments, 1000);
-                                }, 5000);
+                                // Aplicar periódicamente
+                                setInterval(applyPulseAdjustments, 2000);
                                 
                                 // Observer para detectar cambios en el DOM
                                 const observer = new MutationObserver(function(mutations) {
@@ -482,17 +396,12 @@ struct PulseChatWebView: UIViewRepresentable {
                                 });
                                 
                             } catch (error) {
-                                updateStatus('Error: ' + error.message);
                                 SwiftBridge.send('chatError', { error: error.toString() });
                             }
                             
                         } else if (retries < maxRetries) {
-                            if (retries % 5 === 0) {
-                                updateStatus(`Esperando Pulse... (${retries}/${maxRetries})`);
-                            }
                             setTimeout(() => attemptOpen(retries + 1), 500);
                         } else {
-                            updateStatus('Error: El chat no está disponible');
                             SwiftBridge.send('chatError', { error: 'Timeout al cargar PulseLiveChat' });
                         }
                     }
@@ -504,7 +413,6 @@ struct PulseChatWebView: UIViewRepresentable {
                 // Polling para detectar cuándo PulseLiveChat se carga
                 pulseCheckInterval = setInterval(function() {
                     if (typeof PulseLiveChat !== 'undefined') {
-                        updateStatus('Pulse detectado');
                         SwiftBridge.send('pulseDetected');
                         clearInterval(pulseCheckInterval);
                         pulseCheckInterval = null;
@@ -515,13 +423,11 @@ struct PulseChatWebView: UIViewRepresentable {
                 if (document.readyState === 'loading') {
                     document.addEventListener('DOMContentLoaded', function() {
                         setTimeout(function() {
-                            updateStatus('JavaScript listo');
                             SwiftBridge.send('jsReady');
                         }, 1000);
                     });
                 } else {
                     setTimeout(function() {
-                        updateStatus('JavaScript listo');
                         SwiftBridge.send('jsReady');
                     }, 1000);
                 }
