@@ -34,11 +34,11 @@ jobs:
         SCHEME=$(xcodebuild -project "$PROJECT" -list | grep -A 100 "Schemes:" | grep -v "Schemes:" | head -n 1 | xargs)
         echo "Scheme seleccionado: $SCHEME"
         
-        # Compilar (usando Any iOS Simulator Device para compatibilidad)
+        # Compilar (usando generic/platform para máxima compatibilidad)
         xcodebuild clean build \
           -project "$PROJECT" \
           -scheme "$SCHEME" \
-          -destination 'platform=iOS Simulator,name=Any iOS Simulator Device' \
+          -destination 'generic/platform=iOS Simulator' \
           -configuration Debug \
           -derivedDataPath ./build
     
