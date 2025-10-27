@@ -81,15 +81,15 @@ extension PulseChatCoordinator: WKScriptMessageHandler {
         switch event {
         case "jsReady":
             print("✅ [PulseChat] jsReady recibido")
-            // Intentar abrir inmediatamente cuando el JS esté listo
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            // Intentar abrir cuando el JS esté listo
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                 self?.activateChat()
             }
         
         case "pulseDetected":
             print("✅ [PulseChat] pulseDetected recibido")
-            // Cuando Pulse se detecta, abrir de inmediato
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            // Cuando Pulse se detecta, abrir
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                 self?.activateChat()
             }
             
@@ -338,107 +338,23 @@ struct PulseChatWebView: UIViewRepresentable {
                 
                 console.log('[PulseChat] JavaScript inicializado');
                 
-                // Función para aplicar estilos dentro del shadowRoot
-                function applyStylesToShadowRoot(shadowRoot) {
-                    try {
-                        let style = shadowRoot.querySelector('style.pulse-custom-hide-close');
-                        if (!style) {
-                            style = document.createElement('style');
-                            style.className = 'pulse-custom-hide-close';
-                            style.innerHTML = 
-                                '/* Ocultar TODOS los botones de cerrar */ ' +
-                                'button[style*="top"], button[style*="right"], button[style*="position: absolute"] { display: none !important; visibility: hidden !important; opacity: 0 !important; } ' +
-                                'button[style*="position:absolute"] { display: none !important; visibility: hidden !important; opacity: 0 !important; } ' +
-                                'div > button:first-child { display: none !important; visibility: hidden !important; opacity: 0 !important; } ' +
-                                'div > button:last-child { display: none !important; visibility: hidden !important; opacity: 0 !important; } ' +
-                                'header button, header svg, header path { display: none !important; visibility: hidden !important; opacity: 0 !important; } ' +
-                                '[class*="header"] button, [class*="Header"] button { display: none !important; visibility: hidden !important; opacity: 0 !important; } ' +
-                                '[class*="close"], [class*="Close"] { display: none !important; visibility: hidden !important; opacity: 0 !important; } ' +
-                                'button[aria-label*="close"], button[aria-label*="Close"], button[aria-label*="cerrar"] { display: none !important; visibility: hidden !important; opacity: 0 !important; } ' +
-                                'button[title*="close"], button[title*="Close"], button[title*="cerrar"] { display: none !important; visibility: hidden !important; opacity: 0 !important; } ' +
-                                'svg[class*="close"], svg[class*="Close"] { display: none !important; visibility: hidden !important; opacity: 0 !important; } ' +
-                                'path[d*="M19"], path[d*="M18"] { display: none !important; visibility: hidden !important; opacity: 0 !important; } ' +
-                                'button:first-of-type { display: none !important; visibility: hidden !important; opacity: 0 !important; } ' +
-                                'div[style*="display: flex"] > button { display: none !important; visibility: hidden !important; opacity: 0 !important; }';
-                            shadowRoot.appendChild(style);
-                        }
-                        
-                        // Eliminar botones de cerrar del shadowRoot
-                        const shadowButtons = shadowRoot.querySelectorAll('button, svg, path, [role="button"]');
-                        shadowButtons.forEach(function(btn) {
-                            const text = btn.textContent || '';
-                            const ariaLabel = btn.getAttribute('aria-label') || '';
-                            const title = btn.getAttribute('title') || '';
-                            const parentHTML = btn.parentElement ? btn.parentElement.outerHTML : '';
-                            
-                            if (text.includes('×') || text.includes('✕') || 
-                                ariaLabel.toLowerCase().includes('close') || 
-                                title.toLowerCase().includes('close') ||
-                                parentHTML.toLowerCase().includes('header')) {
-                                btn.style.setProperty('display', 'none', 'important');
-                                btn.style.setProperty('visibility', 'hidden', 'important');
-                                btn.style.setProperty('opacity', '0', 'important');
-                                btn.style.setProperty('pointer-events', 'none', 'important');
-                                btn.remove();
-                            }
-                        });
-                    } catch(e) {
-                        // Error al aplicar estilos
-                    }
-                }
-                
-                // MutationObserver global que detecta shadowRoots INSTANTÁNEAMENTE
-                const globalObserver = new MutationObserver(function(mutations) {
-                    mutations.forEach(function(mutation) {
-                        mutation.addedNodes.forEach(function(node) {
-                            if (node.nodeType === 1) {
-                                // Si el nodo tiene shadowRoot, aplicar estilos INMEDIATAMENTE
-                                if (node.shadowRoot) {
-                                    applyStylesToShadowRoot(node.shadowRoot);
-                                }
-                                // Buscar shadowRoots en hijos
-                                const childrenWithShadow = node.querySelectorAll('*');
-                                childrenWithShadow.forEach(function(child) {
-                                    if (child.shadowRoot) {
-                                        applyStylesToShadowRoot(child.shadowRoot);
-                                    }
-                                });
-                            }
-                        });
-                    });
-                });
-                
-                // Iniciar observación ANTES de abrir el chat
-                globalObserver.observe(document.body, {
-                    childList: true,
-                    subtree: true
-                });
-                
                 // Función principal para activar el chat
                 window.activateChatFromSwift = function() {
                     if (chatOpened) {
+                        console.log('[PulseChat] Chat ya abierto, ignorando');
                         return;
                     }
                     
                     function attemptOpen(retries = 0) {
-                        const maxRetries = 120; // 60 segundos máximo (aumentado)
+                        const maxRetries = 60;
                         
-                        console.log('[PulseChat] attemptOpen intento', retries, '- PulseLiveChat existe?', typeof PulseLiveChat !== 'undefined');
+                        console.log('[PulseChat] Intento', retries, '- PulseLiveChat?', typeof PulseLiveChat !== 'undefined');
                         
                         if (typeof PulseLiveChat !== 'undefined' && 
                             typeof PulseLiveChat.show === 'function') {
-                            console.log('[PulseChat] PulseLiveChat.show encontrado, abriendo chat...');
                             
                             try {
-                                // Aplicar estilos a cualquier shadowRoot existente ANTES de abrir
-                                const allElements = document.querySelectorAll('*');
-                                for (let i = 0; i < allElements.length; i++) {
-                                    if (allElements[i].shadowRoot) {
-                                        applyStylesToShadowRoot(allElements[i].shadowRoot);
-                                    }
-                                }
-                                
-                                // AHORA sí: Abrir el chat (el MutationObserver aplicará estilos INSTANTÁNEAMENTE)
+                                console.log('[PulseChat] Abriendo chat...');
                                 PulseLiveChat.show();
                                 chatOpened = true;
                                 SwiftBridge.send('chatOpened');
@@ -448,65 +364,15 @@ struct PulseChatWebView: UIViewRepresentable {
                                     pulseCheckInterval = null;
                                 }
                                 
-                                // Aplicar estilos adicionales después de abrir (por si acaso)
-                                setTimeout(function() {
-                                    const allEls = document.querySelectorAll('*');
-                                    for (let i = 0; i < allEls.length; i++) {
-                                        if (allEls[i].shadowRoot) {
-                                            applyStylesToShadowRoot(allEls[i].shadowRoot);
-                                        }
-                                    }
-                                }, 10);
-                                setTimeout(function() {
-                                    const allEls = document.querySelectorAll('*');
-                                    for (let i = 0; i < allEls.length; i++) {
-                                        if (allEls[i].shadowRoot) {
-                                            applyStylesToShadowRoot(allEls[i].shadowRoot);
-                                        }
-                                    }
-                                }, 50);
-                                setTimeout(function() {
-                                    const allEls = document.querySelectorAll('*');
-                                    for (let i = 0; i < allEls.length; i++) {
-                                        if (allEls[i].shadowRoot) {
-                                            applyStylesToShadowRoot(allEls[i].shadowRoot);
-                                        }
-                                    }
-                                }, 100);
-                                setTimeout(function() {
-                                    const allEls = document.querySelectorAll('*');
-                                    for (let i = 0; i < allEls.length; i++) {
-                                        if (allEls[i].shadowRoot) {
-                                            applyStylesToShadowRoot(allEls[i].shadowRoot);
-                                        }
-                                    }
-                                }, 200);
-                                setTimeout(function() {
-                                    const allEls = document.querySelectorAll('*');
-                                    for (let i = 0; i < allEls.length; i++) {
-                                        if (allEls[i].shadowRoot) {
-                                            applyStylesToShadowRoot(allEls[i].shadowRoot);
-                                        }
-                                    }
-                                }, 500);
-                                
-                                // Aplicar estilos cada segundo de forma continua
-                                setInterval(function() {
-                                    const allEls = document.querySelectorAll('*');
-                                    for (let i = 0; i < allEls.length; i++) {
-                                        if (allEls[i].shadowRoot) {
-                                            applyStylesToShadowRoot(allEls[i].shadowRoot);
-                                        }
-                                    }
-                                }, 1000);
-                                
                             } catch (error) {
+                                console.error('[PulseChat] Error abriendo chat:', error);
                                 SwiftBridge.send('chatError', { error: error.toString() });
                             }
                             
                         } else if (retries < maxRetries) {
                             setTimeout(() => attemptOpen(retries + 1), 500);
                         } else {
+                            console.error('[PulseChat] Timeout esperando PulseLiveChat');
                             SwiftBridge.send('chatError', { error: 'Timeout al cargar PulseLiveChat' });
                         }
                     }
@@ -527,16 +393,18 @@ struct PulseChatWebView: UIViewRepresentable {
                 // Notificar cuando el DOM y scripts estén listos
                 if (document.readyState === 'loading') {
                     document.addEventListener('DOMContentLoaded', function() {
+                        console.log('[PulseChat] DOMContentLoaded disparado');
                         setTimeout(function() {
+                            console.log('[PulseChat] Enviando jsReady. PulseLiveChat?', typeof PulseLiveChat !== 'undefined');
                             SwiftBridge.send('jsReady');
-                            console.log('[PulseChat] jsReady enviado. PulseLiveChat existe?', typeof PulseLiveChat !== 'undefined');
-                        }, 3000); // Aumentado de 1s a 3s
+                        }, 1000);
                     });
                 } else {
+                    console.log('[PulseChat] DOM ya cargado');
                     setTimeout(function() {
+                        console.log('[PulseChat] Enviando jsReady. PulseLiveChat?', typeof PulseLiveChat !== 'undefined');
                         SwiftBridge.send('jsReady');
-                        console.log('[PulseChat] jsReady enviado. PulseLiveChat existe?', typeof PulseLiveChat !== 'undefined');
-                    }, 3000); // Aumentado de 1s a 3s
+                    }, 1000);
                 }
             </script>
             
