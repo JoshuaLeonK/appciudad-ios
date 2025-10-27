@@ -53,14 +53,17 @@ class PulseChatCoordinator: NSObject, ObservableObject {
     // Función para activar el chat desde Swift
     func activateChat() {
         guard let webView = webView, !isProcessing, !chatActivated else {
+            print("⚠️ [PulseChat] activateChat bloqueado: isProcessing=\(isProcessing), chatActivated=\(chatActivated)")
             return
         }
         
+        print("🚀 [PulseChat] Activando chat...")
         isProcessing = true
         
         let activateScript = "window.activateChatFromSwift();"
         webView.evaluateJavaScript(activateScript) { [weak self] _, error in
             if let error = error {
+                print("❌ [PulseChat] Error al activar chat: \(error.localizedDescription)")
                 self?.isProcessing = false
             }
         }
@@ -77,25 +80,36 @@ extension PulseChatCoordinator: WKScriptMessageHandler {
         
         switch event {
         case "jsReady":
+            print("✅ [PulseChat] jsReady recibido")
             // Intentar abrir inmediatamente cuando el JS esté listo
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                 self?.activateChat()
             }
         
         case "pulseDetected":
+            print("✅ [PulseChat] pulseDetected recibido")
             // Cuando Pulse se detecta, abrir de inmediato
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
                 self?.activateChat()
             }
             
         case "chatOpened":
+            print("✅ [PulseChat] chatOpened recibido")
             isProcessing = false
             chatActivated = true
             
         case "chatError":
+            print("❌ [PulseChat] chatError: \(body)")
             isProcessing = false
+        
+        case "scriptLoaded":
+            print("✅ [PulseChat] Pulse script cargado desde: \(body["src"] ?? "unknown")")
+        
+        case "scriptError":
+            print("❌ [PulseChat] Error cargando script: \(body["src"] ?? "unknown")")
             
         default:
+            print("ℹ️ [PulseChat] Evento desconocido: \(event)")
             break
         }
     }
@@ -104,15 +118,15 @@ extension PulseChatCoordinator: WKScriptMessageHandler {
 // MARK: - Navigation Delegate
 extension PulseChatCoordinator: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        // WebView cargado
+        print("✅ [PulseChat] WebView cargado completamente")
     }
     
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        // Error en navegación
+        print("❌ [PulseChat] Error en navegación: \(error.localizedDescription)")
     }
     
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        // Navegación iniciada
+        print("🔄 [PulseChat] Navegación iniciada")
     }
     
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -507,6 +521,7 @@ struct PulseChatWebView: UIViewRepresentable {
         </html>
         """
         
+        print("🔧 [PulseChat] Cargando HTML en WebView...")
         webView.loadHTMLString(htmlString, baseURL: URL(string: "https://cdn.pulse.is/"))
         
         return webView
