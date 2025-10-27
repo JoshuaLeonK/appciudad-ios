@@ -224,7 +224,7 @@ struct PulseChatWebView: UIViewRepresentable {
                     border: none !important;
                 }
                 
-                /* Ocultar el launcher flotante y botón cerrar de Pulse - ULTRA AGRESIVO */
+                /* Ocultar el launcher flotante y botón cerrar de Pulse */
                 .pulse-chat-launcher,
                 .pulse-launcher-button,
                 button[class*="pulse-launcher"],
@@ -249,7 +249,7 @@ struct PulseChatWebView: UIViewRepresentable {
                 iframe[id*="pulse"] button,
                 [role="button"][aria-label*="close"],
                 [role="button"][aria-label*="Close"],
-                /* Selectores ULTRA específicos para la X interna */
+                /* Selectores específicos para la X interna */
                 button[aria-label="Close"],
                 button[aria-label="close"],
                 button[title="Close"],
@@ -260,7 +260,7 @@ struct PulseChatWebView: UIViewRepresentable {
                 [class*="Header"] button,
                 div > button:first-child svg,
                 button > svg[viewBox*="24"],
-                /* Ocultar TODOS los SVG que parezcan una X */
+                /* Ocultar SVG con formas de X */
                 svg > path[d*="M"],
                 svg > line[x1],
                 /* Botones en esquinas superiores */
@@ -322,7 +322,7 @@ struct PulseChatWebView: UIViewRepresentable {
                                 
                                 // Función para forzar estilos en Pulse
                                 function applyPulseAdjustments() {
-                                    // 1. Ocultar botones de cerrar - ULTRA AGRESIVO
+                                    // 1. Ocultar botones de cerrar
                                     const closeButtons = document.querySelectorAll('button, a, span, svg, path, div[role="button"], header button, header svg');
                                     closeButtons.forEach(function(btn) {
                                         const text = btn.textContent || '';
@@ -363,6 +363,31 @@ struct PulseChatWebView: UIViewRepresentable {
                                         });
                                     });
                                     
+                                    // 1.6 CLAVE: Inyectar CSS dentro del shadowRoot (como en Android)
+                                    const allElements = document.querySelectorAll('*');
+                                    for (let i = 0; i < allElements.length; i++) {
+                                        const el = allElements[i];
+                                        if (el.shadowRoot) {
+                                            try {
+                                                // Crear estilo CSS para inyectar en shadowRoot
+                                                let style = el.shadowRoot.querySelector('style.pulse-custom');
+                                                if (!style) {
+                                                    style = document.createElement('style');
+                                                    style.className = 'pulse-custom';
+                                                    style.innerHTML = 
+                                                        'button[style*="top"], button[style*="right"], button[style*="position: absolute"] { display: none !important; } ' +
+                                                        'div > button:last-child { display: none !important; } ' +
+                                                        'header button, [class*="header"] button, [class*="close"] { display: none !important; } ' +
+                                                        'button[aria-label*="close"], button[aria-label*="Close"] { display: none !important; } ' +
+                                                        'svg[class*="close"], path[d*="M19"] { display: none !important; }';
+                                                    el.shadowRoot.appendChild(style);
+                                                }
+                                            } catch(e) {
+                                                // Shadow root cerrado, continuar
+                                            }
+                                        }
+                                    }
+                                    
                                     // 2. FORZAR posicionamiento en elementos de Pulse (necesario porque Pulse usa inline styles)
                                     const pulseElements = document.querySelectorAll(
                                         'div[id*="pulse"], div[class*="pulse"], iframe[id*="pulse"], iframe[src*="pulse"]'
@@ -400,7 +425,7 @@ struct PulseChatWebView: UIViewRepresentable {
                                 // Aplicar ajustes inmediatamente
                                 applyPulseAdjustments();
                                 
-                                // Aplicar AGRESIVAMENTE los primeros segundos
+                                // Aplicar múltiples veces durante los primeros segundos
                                 setTimeout(applyPulseAdjustments, 50);
                                 setTimeout(applyPulseAdjustments, 100);
                                 setTimeout(applyPulseAdjustments, 200);
