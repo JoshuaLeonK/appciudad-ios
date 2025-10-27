@@ -77,7 +77,13 @@ extension PulseChatCoordinator: WKScriptMessageHandler {
         
         switch event {
         case "jsReady":
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.activateChat()
+            }
+        
+        case "pulseDetected":
+            // Cuando Pulse se detecta, intentar abrir inmediatamente
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                 self?.activateChat()
             }
             
@@ -218,7 +224,7 @@ struct PulseChatWebView: UIViewRepresentable {
                     border: none !important;
                 }
                 
-                /* Ocultar el launcher flotante y botón cerrar de Pulse - Versión mejorada */
+                /* Ocultar el launcher flotante y botón cerrar de Pulse - ULTRA AGRESIVO */
                 .pulse-chat-launcher,
                 .pulse-launcher-button,
                 button[class*="pulse-launcher"],
@@ -242,13 +248,33 @@ struct PulseChatWebView: UIViewRepresentable {
                 div[id*="pulse"] path[d*="M19"],
                 iframe[id*="pulse"] button,
                 [role="button"][aria-label*="close"],
-                [role="button"][aria-label*="Close"] {
+                [role="button"][aria-label*="Close"],
+                /* Selectores ULTRA específicos para la X interna */
+                button[aria-label="Close"],
+                button[aria-label="close"],
+                button[title="Close"],
+                button[title="close"],
+                header button,
+                header svg,
+                [class*="header"] button,
+                [class*="Header"] button,
+                div > button:first-child svg,
+                button > svg[viewBox*="24"],
+                /* Ocultar TODOS los SVG que parezcan una X */
+                svg > path[d*="M"],
+                svg > line[x1],
+                /* Botones en esquinas superiores */
+                div[style*="position: absolute"][style*="top"],
+                div[style*="position: fixed"][style*="top"] {
                     display: none !important;
                     visibility: hidden !important;
                     opacity: 0 !important;
                     pointer-events: none !important;
                     width: 0 !important;
                     height: 0 !important;
+                    max-width: 0 !important;
+                    max-height: 0 !important;
+                    overflow: hidden !important;
                 }
             </style>
         </head>
@@ -296,29 +322,45 @@ struct PulseChatWebView: UIViewRepresentable {
                                 
                                 // Función para forzar estilos en Pulse
                                 function applyPulseAdjustments() {
-                                    // 1. Ocultar botones de cerrar
-                                    const closeButtons = document.querySelectorAll('button, a, span, svg, path, div[role="button"]');
+                                    // 1. Ocultar botones de cerrar - ULTRA AGRESIVO
+                                    const closeButtons = document.querySelectorAll('button, a, span, svg, path, div[role="button"], header button, header svg');
                                     closeButtons.forEach(function(btn) {
                                         const text = btn.textContent || '';
                                         const ariaLabel = btn.getAttribute('aria-label') || '';
                                         const title = btn.getAttribute('title') || '';
                                         const className = btn.className || '';
+                                        const id = btn.id || '';
                                         
-                                        if (text.includes('×') || text.includes('✕') || 
+                                        if (text.includes('×') || text.includes('✕') || text.includes('✖') ||
                                             text.toLowerCase().includes('close') || 
                                             text.toLowerCase().includes('cerrar') ||
                                             ariaLabel.toLowerCase().includes('close') || 
                                             ariaLabel.toLowerCase().includes('cerrar') ||
                                             title.toLowerCase().includes('close') ||
                                             title.toLowerCase().includes('cerrar') ||
-                                            className.toLowerCase().includes('close')) {
+                                            className.toLowerCase().includes('close') ||
+                                            id.toLowerCase().includes('close')) {
                                             btn.style.display = 'none';
                                             btn.style.visibility = 'hidden';
                                             btn.style.opacity = '0';
                                             btn.style.pointerEvents = 'none';
                                             btn.style.width = '0';
                                             btn.style.height = '0';
+                                            btn.style.maxWidth = '0';
+                                            btn.style.maxHeight = '0';
+                                            btn.style.overflow = 'hidden';
                                         }
+                                    });
+                                    
+                                    // 1.5 Ocultar específicamente botones en headers
+                                    const headers = document.querySelectorAll('header, [class*="header"], [class*="Header"]');
+                                    headers.forEach(function(header) {
+                                        const headerButtons = header.querySelectorAll('button, svg, path');
+                                        headerButtons.forEach(function(btn) {
+                                            btn.style.display = 'none';
+                                            btn.style.visibility = 'hidden';
+                                            btn.style.opacity = '0';
+                                        });
                                     });
                                     
                                     // 2. FORZAR posicionamiento en elementos de Pulse (necesario porque Pulse usa inline styles)
@@ -358,14 +400,19 @@ struct PulseChatWebView: UIViewRepresentable {
                                 // Aplicar ajustes inmediatamente
                                 applyPulseAdjustments();
                                 
-                                // Aplicar varias veces para asegurar que funcione
+                                // Aplicar AGRESIVAMENTE los primeros segundos
+                                setTimeout(applyPulseAdjustments, 50);
                                 setTimeout(applyPulseAdjustments, 100);
+                                setTimeout(applyPulseAdjustments, 200);
                                 setTimeout(applyPulseAdjustments, 300);
                                 setTimeout(applyPulseAdjustments, 500);
+                                setTimeout(applyPulseAdjustments, 700);
                                 setTimeout(applyPulseAdjustments, 1000);
+                                setTimeout(applyPulseAdjustments, 1500);
+                                setTimeout(applyPulseAdjustments, 2000);
                                 
-                                // Aplicar periódicamente
-                                setInterval(applyPulseAdjustments, 2000);
+                                // Aplicar periódicamente cada segundo
+                                setInterval(applyPulseAdjustments, 1000);
                                 
                                 // Observer para detectar cambios en el DOM
                                 const observer = new MutationObserver(function(mutations) {
