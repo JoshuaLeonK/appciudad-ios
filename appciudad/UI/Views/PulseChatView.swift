@@ -53,17 +53,14 @@ class PulseChatCoordinator: NSObject, ObservableObject {
     // Función para activar el chat desde Swift
     func activateChat() {
         guard let webView = webView, !isProcessing, !chatActivated else {
-            print("⚠️ [PulseChat] activateChat bloqueado: isProcessing=\(isProcessing), chatActivated=\(chatActivated)")
             return
         }
         
-        print("🚀 [PulseChat] Activando chat...")
         isProcessing = true
         
         let activateScript = "window.activateChatFromSwift();"
         webView.evaluateJavaScript(activateScript) { [weak self] _, error in
             if let error = error {
-                print("❌ [PulseChat] Error al activar chat: \(error.localizedDescription)")
                 self?.isProcessing = false
             }
         }
@@ -80,43 +77,23 @@ extension PulseChatCoordinator: WKScriptMessageHandler {
         
         switch event {
         case "jsReady":
-            print("✅ [PulseChat] jsReady recibido")
-            // Intentar abrir cuando el JS esté listo
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                 self?.activateChat()
             }
         
         case "pulseDetected":
-            print("✅ [PulseChat] pulseDetected recibido")
-            // Cuando Pulse se detecta, abrir
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                 self?.activateChat()
             }
             
         case "chatOpened":
-            print("✅ [PulseChat] chatOpened recibido")
             isProcessing = false
             chatActivated = true
             
         case "chatError":
-            print("❌ [PulseChat] chatError: \(body)")
             isProcessing = false
         
-        case "scriptLoaded":
-            print("✅ [PulseChat] Pulse script cargado desde: \(body["src"] ?? "unknown")")
-        
-        case "scriptError":
-            print("❌ [PulseChat] Error cargando script: \(body["src"] ?? "unknown")")
-        
-        case "jsError":
-            print("❌ [PulseChat] JavaScript Error:")
-            print("   - Error: \(body["error"] ?? "unknown")")
-            print("   - Message: \(body["message"] ?? "unknown")")
-            print("   - File: \(body["filename"] ?? "unknown")")
-            print("   - Line: \(body["lineno"] ?? "unknown"):\(body["colno"] ?? "unknown")")
-            
         default:
-            print("ℹ️ [PulseChat] Evento desconocido: \(event)")
             break
         }
     }
@@ -125,15 +102,15 @@ extension PulseChatCoordinator: WKScriptMessageHandler {
 // MARK: - Navigation Delegate
 extension PulseChatCoordinator: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        print("✅ [PulseChat] WebView cargado completamente")
+        // WebView cargado
     }
     
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        print("❌ [PulseChat] Error en navegación: \(error.localizedDescription)")
+        // Error en navegación
     }
     
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        print("🔄 [PulseChat] Navegación iniciada")
+        // Navegación iniciada
     }
     
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -304,57 +281,60 @@ struct PulseChatWebView: UIViewRepresentable {
             <div id="chatContainer"></div>
             
             <script>
-                // Error handler global para capturar errores de JavaScript
-                window.addEventListener('error', function(event) {
-                    console.error('[PulseChat] JavaScript error:', event.error);
-                    try {
-                        window.webkit.messageHandlers.swiftBridge.postMessage({
-                            event: 'jsError',
-                            error: event.error ? event.error.toString() : 'Unknown error',
-                            message: event.message,
-                            filename: event.filename,
-                            lineno: event.lineno,
-                            colno: event.colno
-                        });
-                    } catch(e) {
-                        console.error('[PulseChat] Error enviando error:', e);
-                    }
-                });
-                
                 const SwiftBridge = {
                     send: function(event, data = {}) {
                         const message = { event, ...data };
                         try {
                             window.webkit.messageHandlers.swiftBridge.postMessage(message);
                         } catch (error) {
-                            console.error('[PulseChat] Error enviando mensaje:', error);
+                            // Error al enviar mensaje
                         }
                     }
                 };
                 
                 let chatOpened = false;
                 let pulseCheckInterval = null;
-                let stylesApplied = false;
                 
-                console.log('[PulseChat] JavaScript inicializado');
+                // Función simple para ocultar la X en el shadowRoot
+                function hideCloseButton() {
+                    const allElements = document.querySelectorAll('*');
+                    for (let i = 0; i < allElements.length; i++) {
+                        if (allElements[i].shadowRoot) {
+                            try {
+                                const shadowRoot = allElements[i].shadowRoot;
+                                let style = shadowRoot.querySelector('style.pulse-hide-close');
+                                if (!style) {
+                                    style = document.createElement('style');
+                                    style.className = 'pulse-hide-close';
+                                    style.innerHTML = 
+                                        'button[style*="position: absolute"], ' +
+                                        'button[style*="position:absolute"], ' +
+                                        'header button, ' +
+                                        'button[aria-label*="close" i], ' +
+                                        'button[title*="close" i] ' +
+                                        '{ display: none !important; }';
+                                    shadowRoot.appendChild(style);
+                                }
+                            } catch(e) {
+                                // Shadow root cerrado
+                            }
+                        }
+                    }
+                }
                 
                 // Función principal para activar el chat
                 window.activateChatFromSwift = function() {
                     if (chatOpened) {
-                        console.log('[PulseChat] Chat ya abierto, ignorando');
                         return;
                     }
                     
                     function attemptOpen(retries = 0) {
                         const maxRetries = 60;
                         
-                        console.log('[PulseChat] Intento', retries, '- PulseLiveChat?', typeof PulseLiveChat !== 'undefined');
-                        
                         if (typeof PulseLiveChat !== 'undefined' && 
                             typeof PulseLiveChat.show === 'function') {
                             
                             try {
-                                console.log('[PulseChat] Abriendo chat...');
                                 PulseLiveChat.show();
                                 chatOpened = true;
                                 SwiftBridge.send('chatOpened');
@@ -364,15 +344,20 @@ struct PulseChatWebView: UIViewRepresentable {
                                     pulseCheckInterval = null;
                                 }
                                 
+                                // Ocultar botón X después de abrir
+                                setTimeout(hideCloseButton, 100);
+                                setTimeout(hideCloseButton, 300);
+                                setTimeout(hideCloseButton, 500);
+                                setTimeout(hideCloseButton, 1000);
+                                setInterval(hideCloseButton, 2000);
+                                
                             } catch (error) {
-                                console.error('[PulseChat] Error abriendo chat:', error);
                                 SwiftBridge.send('chatError', { error: error.toString() });
                             }
                             
                         } else if (retries < maxRetries) {
                             setTimeout(() => attemptOpen(retries + 1), 500);
                         } else {
-                            console.error('[PulseChat] Timeout esperando PulseLiveChat');
                             SwiftBridge.send('chatError', { error: 'Timeout al cargar PulseLiveChat' });
                         }
                     }
@@ -393,16 +378,12 @@ struct PulseChatWebView: UIViewRepresentable {
                 // Notificar cuando el DOM y scripts estén listos
                 if (document.readyState === 'loading') {
                     document.addEventListener('DOMContentLoaded', function() {
-                        console.log('[PulseChat] DOMContentLoaded disparado');
                         setTimeout(function() {
-                            console.log('[PulseChat] Enviando jsReady. PulseLiveChat?', typeof PulseLiveChat !== 'undefined');
                             SwiftBridge.send('jsReady');
                         }, 1000);
                     });
                 } else {
-                    console.log('[PulseChat] DOM ya cargado');
                     setTimeout(function() {
-                        console.log('[PulseChat] Enviando jsReady. PulseLiveChat?', typeof PulseLiveChat !== 'undefined');
                         SwiftBridge.send('jsReady');
                     }, 1000);
                 }
@@ -412,25 +393,13 @@ struct PulseChatWebView: UIViewRepresentable {
                 src="https://cdn.pulse.is/livechat/loader.js" 
                 data-live-chat-id="68da9b909c298eec010f7e0f" 
                 async
-                onload="
-                    window.webkit.messageHandlers.swiftBridge.postMessage({event: 'scriptLoaded', src: this.src});
-                    console.log('[PulseChat] Script onload ejecutado');
-                    setTimeout(function() {
-                        console.log('[PulseChat] 2s después del onload - PulseLiveChat existe?', typeof PulseLiveChat !== 'undefined');
-                        if (typeof PulseLiveChat !== 'undefined') {
-                            console.log('[PulseChat] PulseLiveChat:', PulseLiveChat);
-                        } else {
-                            console.log('[PulseChat] window:', Object.keys(window).filter(k => k.toLowerCase().includes('pulse')));
-                        }
-                    }, 2000);
-                "
+                onload="window.webkit.messageHandlers.swiftBridge.postMessage({event: 'scriptLoaded', src: this.src});"
                 onerror="window.webkit.messageHandlers.swiftBridge.postMessage({event: 'scriptError', src: this.src});">
             </script>
         </body>
         </html>
         """
         
-        print("🔧 [PulseChat] Cargando HTML en WebView...")
         webView.loadHTMLString(htmlString, baseURL: URL(string: "https://cdn.pulse.is/"))
         
         return webView
