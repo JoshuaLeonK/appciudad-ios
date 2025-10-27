@@ -107,6 +107,13 @@ extension PulseChatCoordinator: WKScriptMessageHandler {
         
         case "scriptError":
             print("❌ [PulseChat] Error cargando script: \(body["src"] ?? "unknown")")
+        
+        case "jsError":
+            print("❌ [PulseChat] JavaScript Error:")
+            print("   - Error: \(body["error"] ?? "unknown")")
+            print("   - Message: \(body["message"] ?? "unknown")")
+            print("   - File: \(body["filename"] ?? "unknown")")
+            print("   - Line: \(body["lineno"] ?? "unknown"):\(body["colno"] ?? "unknown")")
             
         default:
             print("ℹ️ [PulseChat] Evento desconocido: \(event)")
@@ -297,6 +304,22 @@ struct PulseChatWebView: UIViewRepresentable {
             <div id="chatContainer"></div>
             
             <script>
+                // Error handler global para capturar errores de JavaScript
+                window.addEventListener('error', function(event) {
+                    console.error('[PulseChat] JavaScript error:', event.error);
+                    try {
+                        window.webkit.messageHandlers.swiftBridge.postMessage({
+                            event: 'jsError',
+                            error: event.error ? event.error.toString() : 'Unknown error',
+                            message: event.message,
+                            filename: event.filename,
+                            lineno: event.lineno,
+                            colno: event.colno
+                        });
+                    } catch(e) {
+                        console.error('[PulseChat] Error enviando error:', e);
+                    }
+                });
                 
                 const SwiftBridge = {
                     send: function(event, data = {}) {
@@ -304,7 +327,7 @@ struct PulseChatWebView: UIViewRepresentable {
                         try {
                             window.webkit.messageHandlers.swiftBridge.postMessage(message);
                         } catch (error) {
-                            // Error al enviar mensaje
+                            console.error('[PulseChat] Error enviando mensaje:', error);
                         }
                     }
                 };
@@ -312,6 +335,8 @@ struct PulseChatWebView: UIViewRepresentable {
                 let chatOpened = false;
                 let pulseCheckInterval = null;
                 let stylesApplied = false;
+                
+                console.log('[PulseChat] JavaScript inicializado');
                 
                 // Función para aplicar estilos dentro del shadowRoot
                 function applyStylesToShadowRoot(shadowRoot) {
@@ -396,10 +421,13 @@ struct PulseChatWebView: UIViewRepresentable {
                     }
                     
                     function attemptOpen(retries = 0) {
-                        const maxRetries = 60; // 30 segundos máximo
+                        const maxRetries = 120; // 60 segundos máximo (aumentado)
+                        
+                        console.log('[PulseChat] attemptOpen intento', retries, '- PulseLiveChat existe?', typeof PulseLiveChat !== 'undefined');
                         
                         if (typeof PulseLiveChat !== 'undefined' && 
                             typeof PulseLiveChat.show === 'function') {
+                            console.log('[PulseChat] PulseLiveChat.show encontrado, abriendo chat...');
                             
                             try {
                                 // Aplicar estilos a cualquier shadowRoot existente ANTES de abrir
@@ -501,12 +529,14 @@ struct PulseChatWebView: UIViewRepresentable {
                     document.addEventListener('DOMContentLoaded', function() {
                         setTimeout(function() {
                             SwiftBridge.send('jsReady');
-                        }, 1000);
+                            console.log('[PulseChat] jsReady enviado. PulseLiveChat existe?', typeof PulseLiveChat !== 'undefined');
+                        }, 3000); // Aumentado de 1s a 3s
                     });
                 } else {
                     setTimeout(function() {
                         SwiftBridge.send('jsReady');
-                    }, 1000);
+                        console.log('[PulseChat] jsReady enviado. PulseLiveChat existe?', typeof PulseLiveChat !== 'undefined');
+                    }, 3000); // Aumentado de 1s a 3s
                 }
             </script>
             
@@ -514,7 +544,18 @@ struct PulseChatWebView: UIViewRepresentable {
                 src="https://cdn.pulse.is/livechat/loader.js" 
                 data-live-chat-id="68da9b909c298eec010f7e0f" 
                 async
-                onload="window.webkit.messageHandlers.swiftBridge.postMessage({event: 'scriptLoaded', src: this.src});"
+                onload="
+                    window.webkit.messageHandlers.swiftBridge.postMessage({event: 'scriptLoaded', src: this.src});
+                    console.log('[PulseChat] Script onload ejecutado');
+                    setTimeout(function() {
+                        console.log('[PulseChat] 2s después del onload - PulseLiveChat existe?', typeof PulseLiveChat !== 'undefined');
+                        if (typeof PulseLiveChat !== 'undefined') {
+                            console.log('[PulseChat] PulseLiveChat:', PulseLiveChat);
+                        } else {
+                            console.log('[PulseChat] window:', Object.keys(window).filter(k => k.toLowerCase().includes('pulse')));
+                        }
+                    }, 2000);
+                "
                 onerror="window.webkit.messageHandlers.swiftBridge.postMessage({event: 'scriptError', src: this.src});">
             </script>
         </body>
