@@ -377,12 +377,32 @@ struct PulseChatWebView: UIViewRepresentable {
                                     pulseCheckInterval = null;
                                 }
                                 
-                                // Aplicar ajustes (X + posicionamiento full-screen)
+                                // Aplicar ajustes inmediatamente
+                                applyPulseAdjustments();
+                                
+                                // Aplicar múltiples veces durante los primeros segundos
+                                setTimeout(applyPulseAdjustments, 50);
                                 setTimeout(applyPulseAdjustments, 100);
+                                setTimeout(applyPulseAdjustments, 200);
                                 setTimeout(applyPulseAdjustments, 300);
                                 setTimeout(applyPulseAdjustments, 500);
+                                setTimeout(applyPulseAdjustments, 700);
                                 setTimeout(applyPulseAdjustments, 1000);
-                                setInterval(applyPulseAdjustments, 2000);
+                                
+                                // Aplicar periódicamente cada segundo
+                                setInterval(applyPulseAdjustments, 1000);
+                                
+                                // MutationObserver para detectar cambios en el DOM
+                                const observer = new MutationObserver(function(mutations) {
+                                    applyPulseAdjustments();
+                                });
+                                
+                                observer.observe(document.body, {
+                                    childList: true,
+                                    subtree: true,
+                                    attributes: true,
+                                    attributeFilter: ['style', 'class']
+                                });
                                 
                             } catch (error) {
                                 SwiftBridge.send('chatError', { error: error.toString() });
