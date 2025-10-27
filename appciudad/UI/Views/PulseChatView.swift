@@ -82,7 +82,8 @@ extension PulseChatCoordinator: WKScriptMessageHandler {
             }
         
         case "pulseDetected":
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            // Cuando Pulse se detecta, intentar abrir inmediatamente
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                 self?.activateChat()
             }
             
@@ -92,7 +93,7 @@ extension PulseChatCoordinator: WKScriptMessageHandler {
             
         case "chatError":
             isProcessing = false
-        
+            
         default:
             break
         }
@@ -281,6 +282,7 @@ struct PulseChatWebView: UIViewRepresentable {
             <div id="chatContainer"></div>
             
             <script>
+                
                 const SwiftBridge = {
                     send: function(event, data = {}) {
                         const message = { event, ...data };
@@ -295,66 +297,6 @@ struct PulseChatWebView: UIViewRepresentable {
                 let chatOpened = false;
                 let pulseCheckInterval = null;
                 
-                // Función para ocultar la X y forzar posicionamiento full-screen
-                function applyPulseAdjustments() {
-                    // 1. Ocultar botón X en shadowRoot
-                    const allElements = document.querySelectorAll('*');
-                    for (let i = 0; i < allElements.length; i++) {
-                        if (allElements[i].shadowRoot) {
-                            try {
-                                const shadowRoot = allElements[i].shadowRoot;
-                                let style = shadowRoot.querySelector('style.pulse-hide-close');
-                                if (!style) {
-                                    style = document.createElement('style');
-                                    style.className = 'pulse-hide-close';
-                                    style.innerHTML = 
-                                        'button[style*="position: absolute"], ' +
-                                        'button[style*="position:absolute"], ' +
-                                        'header button, ' +
-                                        'button[aria-label*="close" i], ' +
-                                        'button[title*="close" i] ' +
-                                        '{ display: none !important; }';
-                                    shadowRoot.appendChild(style);
-                                }
-                            } catch(e) {
-                                // Shadow root cerrado
-                            }
-                        }
-                    }
-                    
-                    // 2. FORZAR posicionamiento full-screen en elementos de Pulse
-                    const pulseElements = document.querySelectorAll(
-                        'div[id*="pulse"], div[class*="pulse"], iframe[id*="pulse"], iframe[src*="pulse"]'
-                    );
-                    pulseElements.forEach(function(el) {
-                        el.style.width = '100%';
-                        el.style.height = '100%';
-                        el.style.maxWidth = '100%';
-                        el.style.maxHeight = '100%';
-                        el.style.position = 'absolute';
-                        el.style.top = '0';
-                        el.style.left = '0';
-                        el.style.right = '0';
-                        el.style.bottom = '0';
-                        el.style.margin = '0';
-                        el.style.padding = '0';
-                        el.style.transform = 'none';
-                    });
-                    
-                    // 3. Forzar también en hijos del chatContainer
-                    const chatContainer = document.getElementById('chatContainer');
-                    if (chatContainer && chatContainer.children.length > 0) {
-                        for (let i = 0; i < chatContainer.children.length; i++) {
-                            const child = chatContainer.children[i];
-                            child.style.width = '100%';
-                            child.style.height = '100%';
-                            child.style.position = 'absolute';
-                            child.style.top = '0';
-                            child.style.left = '0';
-                        }
-                    }
-                }
-                
                 // Función principal para activar el chat
                 window.activateChatFromSwift = function() {
                     if (chatOpened) {
@@ -362,7 +304,7 @@ struct PulseChatWebView: UIViewRepresentable {
                     }
                     
                     function attemptOpen(retries = 0) {
-                        const maxRetries = 60;
+                        const maxRetries = 60; // 30 segundos máximo
                         
                         if (typeof PulseLiveChat !== 'undefined' && 
                             typeof PulseLiveChat.show === 'function') {
@@ -370,11 +312,114 @@ struct PulseChatWebView: UIViewRepresentable {
                             try {
                                 PulseLiveChat.show();
                                 chatOpened = true;
+                                
                                 SwiftBridge.send('chatOpened');
                                 
                                 if (pulseCheckInterval) {
                                     clearInterval(pulseCheckInterval);
                                     pulseCheckInterval = null;
+                                }
+                                
+                                // Función para forzar estilos en Pulse
+                                function applyPulseAdjustments() {
+                                    // 1. Ocultar botones de cerrar
+                                    const closeButtons = document.querySelectorAll('button, a, span, svg, path, div[role="button"], header button, header svg');
+                                    closeButtons.forEach(function(btn) {
+                                        const text = btn.textContent || '';
+                                        const ariaLabel = btn.getAttribute('aria-label') || '';
+                                        const title = btn.getAttribute('title') || '';
+                                        const className = btn.className || '';
+                                        const id = btn.id || '';
+                                        
+                                        if (text.includes('×') || text.includes('✕') || text.includes('✖') ||
+                                            text.toLowerCase().includes('close') || 
+                                            text.toLowerCase().includes('cerrar') ||
+                                            ariaLabel.toLowerCase().includes('close') || 
+                                            ariaLabel.toLowerCase().includes('cerrar') ||
+                                            title.toLowerCase().includes('close') ||
+                                            title.toLowerCase().includes('cerrar') ||
+                                            className.toLowerCase().includes('close') ||
+                                            id.toLowerCase().includes('close')) {
+                                            btn.style.display = 'none';
+                                            btn.style.visibility = 'hidden';
+                                            btn.style.opacity = '0';
+                                            btn.style.pointerEvents = 'none';
+                                            btn.style.width = '0';
+                                            btn.style.height = '0';
+                                            btn.style.maxWidth = '0';
+                                            btn.style.maxHeight = '0';
+                                            btn.style.overflow = 'hidden';
+                                        }
+                                    });
+                                    
+                                    // 1.5 Ocultar específicamente botones en headers
+                                    const headers = document.querySelectorAll('header, [class*="header"], [class*="Header"]');
+                                    headers.forEach(function(header) {
+                                        const headerButtons = header.querySelectorAll('button, svg, path');
+                                        headerButtons.forEach(function(btn) {
+                                            btn.style.display = 'none';
+                                            btn.style.visibility = 'hidden';
+                                            btn.style.opacity = '0';
+                                        });
+                                    });
+                                    
+                                    // 1.6 CLAVE: Inyectar CSS dentro del shadowRoot (como en Android)
+                                    const allElements = document.querySelectorAll('*');
+                                    for (let i = 0; i < allElements.length; i++) {
+                                        const el = allElements[i];
+                                        if (el.shadowRoot) {
+                                            try {
+                                                // Crear estilo CSS para inyectar en shadowRoot
+                                                let style = el.shadowRoot.querySelector('style.pulse-custom');
+                                                if (!style) {
+                                                    style = document.createElement('style');
+                                                    style.className = 'pulse-custom';
+                                                    style.innerHTML = 
+                                                        'button[style*="top"], button[style*="right"], button[style*="position: absolute"] { display: none !important; } ' +
+                                                        'div > button:last-child { display: none !important; } ' +
+                                                        'header button, [class*="header"] button, [class*="close"] { display: none !important; } ' +
+                                                        'button[aria-label*="close"], button[aria-label*="Close"] { display: none !important; } ' +
+                                                        'svg[class*="close"], path[d*="M19"] { display: none !important; }';
+                                                    el.shadowRoot.appendChild(style);
+                                                }
+                                            } catch(e) {
+                                                // Shadow root cerrado, continuar
+                                            }
+                                        }
+                                    }
+                                    
+                                    // 2. FORZAR posicionamiento en elementos de Pulse (necesario porque Pulse usa inline styles)
+                                    const pulseElements = document.querySelectorAll(
+                                        'div[id*="pulse"], div[class*="pulse"], iframe[id*="pulse"], iframe[src*="pulse"]'
+                                    );
+                                    pulseElements.forEach(function(el) {
+                                        el.style.width = '100%';
+                                        el.style.height = '100%';
+                                        el.style.maxWidth = '100%';
+                                        el.style.maxHeight = '100%';
+                                        el.style.position = 'absolute';
+                                        el.style.top = '0';
+                                        el.style.left = '0';
+                                        el.style.right = '0';
+                                        el.style.bottom = '0';
+                                        el.style.margin = '0';
+                                        el.style.padding = '0';
+                                        el.style.transform = 'none';
+                                    });
+                                    
+                                    // 3. Forzar en hijos directos del chatContainer también
+                                    const chatContainer = document.getElementById('chatContainer');
+                                    if (chatContainer) {
+                                        const children = chatContainer.children;
+                                        for (let i = 0; i < children.length; i++) {
+                                            const child = children[i];
+                                            child.style.width = '100%';
+                                            child.style.height = '100%';
+                                            child.style.position = 'absolute';
+                                            child.style.top = '0';
+                                            child.style.left = '0';
+                                        }
+                                    }
                                 }
                                 
                                 // Aplicar ajustes inmediatamente
@@ -388,13 +433,31 @@ struct PulseChatWebView: UIViewRepresentable {
                                 setTimeout(applyPulseAdjustments, 500);
                                 setTimeout(applyPulseAdjustments, 700);
                                 setTimeout(applyPulseAdjustments, 1000);
+                                setTimeout(applyPulseAdjustments, 1500);
+                                setTimeout(applyPulseAdjustments, 2000);
                                 
                                 // Aplicar periódicamente cada segundo
                                 setInterval(applyPulseAdjustments, 1000);
                                 
-                                // MutationObserver para detectar cambios en el DOM
+                                // Observer para detectar cambios en el DOM
                                 const observer = new MutationObserver(function(mutations) {
                                     applyPulseAdjustments();
+                                    
+                                    mutations.forEach(function(mutation) {
+                                        if (mutation.addedNodes.length > 0) {
+                                            mutation.addedNodes.forEach(function(node) {
+                                                if (node.nodeType === 1) {
+                                                    const id = node.id || '';
+                                                    const className = node.className || '';
+                                                    if (id.includes('pulse') || className.toString().includes('pulse')) {
+                                                        setTimeout(applyPulseAdjustments, 100);
+                                                        setTimeout(applyPulseAdjustments, 300);
+                                                        setTimeout(applyPulseAdjustments, 500);
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    });
                                 });
                                 
                                 observer.observe(document.body, {
